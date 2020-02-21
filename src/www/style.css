@@ -1,0 +1,25 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 100%;
+}
+
+.error {
+  color: red;
+}
+
+#info {
+  color: gray;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+#copyright {
+  color: lightgray;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.7rem;
+  text-align: center;
+  width: 100%;
+}
