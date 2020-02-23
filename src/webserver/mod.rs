@@ -1,8 +1,13 @@
 use std::env;
 use std::error::Error;
 use std::fs;
+use std::io;
 use std::io::prelude::*;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
+
+mod utils;
+
+use utils::{parse_filename_from_request, get_response_headers_from_file};
 
 
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
@@ -33,38 +38,67 @@ fn handle_connection(mut stream: TcpStream) {
 
     stream.read(&mut buffer).unwrap();
 
-    println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+    let buffer_string = String::from_utf8_lossy(&buffer[..]);
+    // println!("Request: {}", &buffer_string);
 
-    let get = b"GET / HTTP/1.1\r\n";
-    let (status_line, filename) = if buffer.starts_with(get) {
-        ("HTTP/1.1 200 OK\r\n\r\n", "index.html")
-    } else {
-        ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "404.html")
-    };
+    if !buffer.starts_with(b"GET ") {
+        let response = "HTTP/1.1 501 Not Implemented\r\n\r\nRequested method is not implemented";
 
+        stream.write(response.as_bytes()).unwrap();
+        stream.flush().unwrap_or_else(|err| {
+            eprintln!("Could not flush the response stream: {}", err);
+        });
+
+        return
+    }
+
+    let filename = parse_filename_from_request(&buffer_string).or_else(|| Some("index.html")).unwrap();
     let mut index_file = env::current_exe().unwrap();
     index_file.pop();
     index_file.push(format!("www/{}", filename));
-    
+
     if !index_file.exists() {
+        eprintln!("Requested file {} not found", filename);
         index_file.pop();
-        index_file.push("www/404.html");
+        index_file.push("404.html");
     }
 
     let (status_line, index_file) = if !index_file.exists() {
         eprintln!("File {} not found", index_file.display());
-        (Some("HTTP/1.1 404 NOT FOUND\r\n\r\n"), None)
+        (Some("HTTP/1.1 404 NOT FOUND\r\n\r\nFile not found"), None)
     } else {
-        (Some(status_line), Some(index_file))
+        (Some("HTTP/1.1 200 OK"), Some(index_file))
     };
 
-    let contents = match index_file {
-        Some(f) => fs::read_to_string(&f).unwrap(),
-        None => String::from("")
+    let (contents, headers) = match index_file {
+        Some(f) => {
+            println!("FILE {} requested.", &f.display());
+            match get_response_headers_from_file(&f) {
+                Some(headers) => {
+                    // TODO(dkg): crashes if file content is not valid utf-8....
+                    let content: io::Result<String> = fs::read_to_string(&f).or_else(|_| {
+                        Ok(String::from("TODO"))
+                    });
+                    (content.unwrap(), headers)
+                },
+                None => {
+                    // TODO(dkg): crashes if file content is not valid utf-8....
+                    let content: io::Result<String> = fs::read_to_string(&f).or_else(|_| {
+                        Ok(String::from("TODO"))
+                    });
+                    (content.unwrap(), String::from(""))
+                }
+            }
+            
+        },
+        None => (String::from(""), String::from(""))
     };
-    let response = format!("{}\r\n\r\n{}", status_line.unwrap(), contents);
 
-    stream.write(response.as_bytes()).unwrap();
+    let response = format!("{}{}\r\n\r\n{}", status_line.unwrap(), headers, contents);
+
+    if let Err(err) = stream.write(response.as_bytes()) { 
+        eprintln!("Could write to the response stream: {}", err);
+    }
     stream.flush().unwrap_or_else(|err| {
         eprintln!("Could not flush the response stream: {}", err);
     })
