@@ -79,7 +79,7 @@ pub fn get_response_headers_from_file(filepath: &PathBuf) -> Option<String> {
   Last-Modified: {}\n\
   Content-Length: {}\n\
   Content-Type: {}\n\
-  Connection: Closed  ", now, SERVER_NAME, SERVER_VERSION, modified, size, content_type);
+  Connection: Closed", now, SERVER_NAME, SERVER_VERSION, modified, size, content_type);
 
   Some(headers)
 }
