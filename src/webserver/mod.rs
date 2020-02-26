@@ -1,13 +1,17 @@
 use std::env;
 use std::error::Error;
 use std::fs;
-use std::io;
 use std::io::prelude::*;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 
 mod utils;
 
-use utils::{parse_filename_from_request, get_response_headers_from_file};
+use utils::{
+    is_html_file,
+    parse_filename_from_request,
+    get_default_response_headers,
+    get_response_headers_from_file,
+};
 
 
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
@@ -34,12 +38,12 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let mut buffer = [0; 256];
+    // TODO(dkg): should probably read the whole request string here ...
+    let mut buffer = [0; 1024];
 
     stream.read(&mut buffer).unwrap();
 
     let buffer_string = String::from_utf8_lossy(&buffer[..]);
-    // println!("Request: {}", &buffer_string);
 
     if !buffer.starts_with(b"GET ") {
         let response = "HTTP/1.1 501 Not Implemented\r\n\r\nRequested method is not implemented";
@@ -57,48 +61,44 @@ fn handle_connection(mut stream: TcpStream) {
     index_file.pop();
     index_file.push(format!("www/{}", filename));
 
-    if !index_file.exists() {
-        eprintln!("Requested file {} not found", filename);
+    // Only for html files we want to replace a not-found file with our custom 404.html.
+    if !index_file.exists() && is_html_file(&index_file) {
         index_file.pop();
         index_file.push("404.html");
     }
 
     let (status_line, index_file) = if !index_file.exists() {
         eprintln!("File {} not found", index_file.display());
-        (Some("HTTP/1.1 404 NOT FOUND\r\n\r\nFile not found"), None)
+        ("HTTP/1.1 404 NOT FOUND\r\n\r\n", None)
     } else {
-        (Some("HTTP/1.1 200 OK"), Some(index_file))
+        ("HTTP/1.1 200 OK", Some(index_file))
     };
 
-    let (contents, headers) = match index_file {
+    let (headers, content) = match index_file {
+        None => (get_default_response_headers(), vec![]),
         Some(f) => {
             println!("FILE {} requested.", &f.display());
-            match get_response_headers_from_file(&f) {
-                Some(headers) => {
-                    // TODO(dkg): crashes if file content is not valid utf-8....
-                    let content: io::Result<String> = fs::read_to_string(&f).or_else(|_| {
-                        Ok(String::from("TODO"))
-                    });
-                    (content.unwrap(), headers)
-                },
-                None => {
-                    // TODO(dkg): crashes if file content is not valid utf-8....
-                    let content: io::Result<String> = fs::read_to_string(&f).or_else(|_| {
-                        Ok(String::from("TODO"))
-                    });
-                    (content.unwrap(), String::from(""))
-                }
-            }
-            
+            // TODO(dkg): this is not a good idea if the file size exceeds a certain size ...
+            let content = fs::read(&f).unwrap_or_else(|err| {
+                eprintln!("Could not read the file {}: {}", &f.display(), err);
+                vec![]
+            });
+            (get_response_headers_from_file(&f), content)
         },
-        None => (String::from(""), String::from(""))
     };
 
-    let response = format!("{}{}\r\n\r\n{}", status_line.unwrap(), headers, contents);
-
+    let response = format!("{}{}\r\n\r\n", status_line, headers);
     if let Err(err) = stream.write(response.as_bytes()) { 
-        eprintln!("Could write to the response stream: {}", err);
+        eprintln!("Could write status line and headers to the response stream: {}", err);
     }
+
+    // TODO(dkg): (stable) rustc doesn't let me write it in one if expression/statement yet
+    if content.len() > 0 {
+        if let Err(err) = stream.write(&content) {
+            eprintln!("Could not write the file content to the response stream: {}", err);
+        }
+    }
+
     stream.flush().unwrap_or_else(|err| {
         eprintln!("Could not flush the response stream: {}", err);
     })

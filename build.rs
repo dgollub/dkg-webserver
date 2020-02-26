@@ -19,6 +19,4 @@ fn main() {
     options.overwrite = true;
 
     copy(source_dir, target_dir, &options).unwrap();
-
-    println!("cargo:rerun-if-changed=build.rs");
 }
