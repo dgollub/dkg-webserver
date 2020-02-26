@@ -4,7 +4,7 @@ use std::fs;
 use std::io::prelude::*;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 
-mod utils;
+pub mod utils;
 
 use utils::{
     is_html_file,

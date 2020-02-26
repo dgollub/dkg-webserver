@@ -14,6 +14,7 @@ const SERVER_VERSION: &str = "0.1 alpha";
 /// # Examples
 ///
 /// ```
+/// use dkg_webserver::webserver::utils::{parse_filename_from_request};
 /// let line = "GET / HTTP/1.1\r\n";
 ///
 /// assert_eq!(None, parse_filename_from_request(&line));

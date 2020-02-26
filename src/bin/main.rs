@@ -1,9 +1,7 @@
 use std::env;
 use std::process;
 
-mod webserver;
-
-use webserver::{Config, run};
+use dkg_webserver::{Config, run};
 
 
 fn main() {
