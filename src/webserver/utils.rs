@@ -46,6 +46,35 @@ pub fn get_default_response_headers() -> String {
     )
 }
 
+fn get_contenttype_from_file(file: &PathBuf) -> String {
+    let ext = if let Some(ext) = file.extension() {
+        // TODO(dkg): error handling
+        OsStr::to_str(ext)
+    } else {
+        Some("fallback to default")
+    };
+
+    let ext = ext.unwrap().to_lowercase();
+    let content_type = match &ext[..] {
+        "html" | "htm" => "text/html",
+        "css" | "scss" => "text/css",
+        "js" | "es6" => "text/javascript",
+        "pdf" => "application/pdf",
+        "zip" => "application/zip",
+        "mp3" => "application/mp3",
+        "ico" => "image/x-icon",
+        "png" => "image/png",
+        "bmp" => "image/bmp",
+        "gif" => "image/gif",
+        "jpg" | "jpeg" => "image/jpeg",
+        "txt" | "text" | "md" => "text/plain",
+        // TODO(dkg): add more mimetypes or find a crate that has everything
+        _ => "application/octet-stream",
+    };
+
+    content_type.to_owned()
+}
+
 pub fn get_response_headers_from_file(filepath: &PathBuf) -> String {
     let metadata = metadata(filepath).unwrap();
     let size = metadata.len();
@@ -54,29 +83,7 @@ pub fn get_response_headers_from_file(filepath: &PathBuf) -> String {
     let format = "%a, %d %b %Y %H:%M:%S %Z";
     let now = Utc::now().format(format);
     let modified = DateTime::<Utc>::from(metadata.modified().unwrap()).format(format);
-
-    let ext = if let Some(ext) = filepath.extension() {
-        // TODO(dkg): error handling
-        OsStr::to_str(ext)
-    } else {
-        Some("txt")
-    };
-
-    let content_type = match ext {
-        Some("html") | Some("htm") => "text/html",
-        Some("css") | Some("scss") => "text/css",
-        Some("js") | Some("es6") => "text/javascript",
-        Some("pdf") => "application/pdf",
-        Some("zip") => "application/zip",
-        Some("mp3") => "application/mp3",
-        Some("ico") => "image/x-icon",
-        Some("png") => "image/png",
-        Some("bmp") => "image/bmp",
-        Some("gif") => "image/gif",
-        Some("jpg") | Some("jpeg") => "image/jpeg",
-        // TODO(dkg): add more mimetypes or find a crate that has everything
-        _ => "text/plain",
-    };
+    let content_type = get_contenttype_from_file(&filepath);
 
     format!(
         "Date: {}\n\
@@ -92,6 +99,46 @@ pub fn get_response_headers_from_file(filepath: &PathBuf) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn get_contenttype_from_file_test() {
+        let file = PathBuf::from("test/index.html");
+        let expected = "text/html";
+        let result = get_contenttype_from_file(&file);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn get_contenttype_from_file_test_upper() {
+        let file = PathBuf::from("index.HTML");
+        let expected = "text/html";
+        let result = get_contenttype_from_file(&file);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn get_contenttype_from_file_test_htm() {
+        let file = PathBuf::from("index.HTm");
+        let expected = "text/html";
+        let result = get_contenttype_from_file(&file);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn get_contenttype_from_file_test_unknown() {
+        let file = PathBuf::from("index.xxx");
+        let expected = "application/octet-stream";
+        let result = get_contenttype_from_file(&file);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn get_contenttype_from_file_test_noext() {
+        let file = PathBuf::from("some file name");
+        let expected = "application/octet-stream";
+        let result = get_contenttype_from_file(&file);
+        assert_eq!(expected, result);
+    }
 
     #[test]
     fn parse_filename_from_request_none() {
