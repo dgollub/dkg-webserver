@@ -17,6 +17,7 @@ You need the Rust programming language installed ([installation guideline](https
 Then simply run `cargo run` to run the web server in your terminal.
 
 By default it will listen on `localhost` on port `8080`.
+Easy access: [http://localhost:8080/](http://localhost:8080/)
 
 
 # Copyright

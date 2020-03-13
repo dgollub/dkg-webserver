@@ -4,26 +4,24 @@ use std::fs;
 use std::io::prelude::*;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
 
-pub mod utils;
-
+mod utils;
 use utils::{
-    is_html_file,
+    get_default_response_headers, get_response_headers_from_file, is_html_file,
     parse_filename_from_request,
-    get_default_response_headers,
-    get_response_headers_from_file,
 };
-
 
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8080;
-
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let socket = SocketAddrV4::new(config.address.parse::<Ipv4Addr>().unwrap(), config.port);
 
     let listener = TcpListener::bind(socket)?;
 
-    println!("Running DKG Web Server at http://{}:{}/", config.address, config.port);
+    println!(
+        "Running DKG Web Server at http://{}:{}/",
+        config.address, config.port
+    );
 
     for stream in listener.incoming() {
         println!("Connection established!");
@@ -53,10 +51,12 @@ fn handle_connection(mut stream: TcpStream) {
             eprintln!("Could not flush the response stream: {}", err);
         });
 
-        return
+        return;
     }
 
-    let filename = parse_filename_from_request(&buffer_string).or_else(|| Some("index.html")).unwrap();
+    let filename = parse_filename_from_request(&buffer_string)
+        .or_else(|| Some("index.html"))
+        .unwrap();
     let mut index_file = env::current_exe().unwrap();
     index_file.pop();
     index_file.push(format!("www/{}", filename));
@@ -84,18 +84,24 @@ fn handle_connection(mut stream: TcpStream) {
                 vec![]
             });
             (get_response_headers_from_file(&f), content)
-        },
+        }
     };
 
     let response = format!("{}{}\r\n\r\n", status_line, headers);
-    if let Err(err) = stream.write(response.as_bytes()) { 
-        eprintln!("Could write status line and headers to the response stream: {}", err);
+    if let Err(err) = stream.write(response.as_bytes()) {
+        eprintln!(
+            "Could write status line and headers to the response stream: {}",
+            err
+        );
     }
 
     // TODO(dkg): (stable) rustc doesn't let me write it in one if expression/statement yet
     if content.len() > 0 {
         if let Err(err) = stream.write(&content) {
-            eprintln!("Could not write the file content to the response stream: {}", err);
+            eprintln!(
+                "Could not write the file content to the response stream: {}",
+                err
+            );
         }
     }
 
@@ -124,27 +130,6 @@ impl Config {
             None => DEFAULT_PORT,
         };
 
-        Ok(Config {
-            address,
-            port,
-        })
+        Ok(Config { address, port })
     }
-}
-
-
-#[cfg(test)]
-mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn case_sensitive() {
-//         let query = "duct";
-//         let contents = "\
-// Rust:
-// safe, fast, productive.
-// Pick three.
-// Duct tape.";
-
-//         assert_eq!(vec!["safe, fast, productive."], search(query, contents));
-//     }
 }

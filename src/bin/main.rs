@@ -1,8 +1,7 @@
 use std::env;
 use std::process;
 
-use dkg_webserver::{Config, run};
-
+use dkg_webserver::{run, Config};
 
 fn main() {
     let config = Config::new(env::args()).unwrap_or_else(|err| {

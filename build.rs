@@ -4,8 +4,7 @@ use std::env;
 use std::path::Path;
 
 extern crate fs_extra;
-use fs_extra::dir::{CopyOptions, copy};
-
+use fs_extra::dir::{copy, CopyOptions};
 
 fn main() {
     let profile = env::var_os("PROFILE").unwrap();
