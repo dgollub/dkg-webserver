@@ -5,7 +5,7 @@ This project implements a minimal web server.
 It is mostly based on the [web server](https://doc.rust-lang.org/book/ch20-00-final-project-a-web-server.html) chapter
 of the [The Rust Programming Language Book](https://doc.rust-lang.org/book/).
 
-While the implementation follows the book for the most part, but I take some liberties
+While the implementation follows the book for the most part, I took some liberties
 to implement certain things and parts differently.
 
 The server can only handle `GET` requests right now.
