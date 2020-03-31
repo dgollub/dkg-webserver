@@ -10,13 +10,16 @@ use utils::{
     parse_filename_from_request,
 };
 
+use super::threadpool::ThreadPool;
+
+
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8080;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let socket = SocketAddrV4::new(config.address.parse::<Ipv4Addr>().unwrap(), config.port);
-
     let listener = TcpListener::bind(socket)?;
+    let pool = ThreadPool::new(8);
 
     println!(
         "Running DKG Web Server at http://{}:{}/",
@@ -26,11 +29,17 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     for stream in listener.incoming() {
         println!("Connection established!");
 
-        // TODO(dkg): fix error handling to not crash the whole server....
-        let stream = stream?;
-
-        handle_connection(stream);
+        match stream {
+            Ok(stream) => {
+                pool.execute(|| {
+                    handle_connection(stream);
+                });
+            },
+            Err(err) => eprintln!("ERR! Could not get incoming stream because: {}", err),
+        };
     }
+
+    println!("Shutting down.");
 
     Ok(())
 }
